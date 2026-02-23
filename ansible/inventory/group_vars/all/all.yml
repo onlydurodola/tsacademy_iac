@@ -1,0 +1,13 @@
+common_packages:
+  - curl
+  - git
+  - unzip
+  - ca-certificates
+  - curl
+  - gnupg
+  - acl
+
+app_user: taskapp
+app_group: taskapp
+app_base_dir: /opt/taskapp
+

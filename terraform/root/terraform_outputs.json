@@ -1,0 +1,44 @@
+{
+  "backend_public_ip": {
+    "sensitive": false,
+    "type": "string",
+    "value": "54.154.39.69"
+  },
+  "db_endpoint": {
+    "sensitive": false,
+    "type": "string",
+    "value": "taskapp-tsa-terra-postgres.chc04ise4rq2.eu-west-1.rds.amazonaws.com:5432"
+  },
+  "frontend_public_ip": {
+    "sensitive": false,
+    "type": "string",
+    "value": "3.252.75.229"
+  },
+  "project_context": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "aws_region": "string",
+        "azs": [
+          "list",
+          "string"
+        ],
+        "project_name": "string"
+      }
+    ],
+    "value": {
+      "aws_region": "eu-west-1",
+      "azs": [
+        "eu-west-1a",
+        "eu-west-1b"
+      ],
+      "project_name": "taskapp-tsa-terra"
+    }
+  },
+  "vpc_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "vpc-0ae9f0da1c03e0e12"
+  }
+}

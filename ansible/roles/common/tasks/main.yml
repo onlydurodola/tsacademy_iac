@@ -1,0 +1,30 @@
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install common packages
+  apt:
+    name: "{{ common_packages }}"
+    state: present
+
+- name: Ensure application group exists
+  group:
+    name: "{{ app_group }}"
+    state: present
+
+- name: Ensure application user exists
+  user:
+    name: "{{ app_user }}"
+    group: "{{ app_group }}"
+    create_home: false
+    shell: /usr/sbin/nologin
+    system: true
+
+- name: Create application base directory
+  file:
+    path: "{{ app_base_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"

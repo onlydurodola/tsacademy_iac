@@ -1,0 +1,122 @@
+---
+# tasks file for roles/frontend
+
+- name: Install frontend packages
+  apt:
+    name: "{{ frontend_packages }}"
+    state: present
+
+- name: Create frontend application directory
+  file:
+    path: "{{ frontend_app_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
+- name: Ensure web server is running
+  service:
+    name: "{{ web_server_package }}"
+    state: started
+    enabled: true
+
+- name: Add NodeSource repository for Node.js 18.x
+  shell: |
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+  args:
+    executable: /bin/bash
+    creates: /etc/apt/sources.list.d/nodesource.list
+
+- name: Install Node.js (includes npm)
+  apt:
+    name: nodejs
+    state: present
+    update_cache: yes
+
+- name: Create home directory for taskapp user
+  file:
+    path: /home/taskapp
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+  become: true
+
+- name: Create npm cache directory
+  file:
+    path: "{{ app_base_dir }}/.npm"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+  become: true
+
+- name: Clone frontend repository
+  git:
+    repo: "{{ frontend_repo_url }}"
+    dest: "{{ frontend_src_dir }}"
+    version: "{{ frontend_branch }}"
+    force: yes
+  become_user: "{{ app_user }}"
+  become: true
+
+- name: Create frontend .env.production file
+  copy:
+    dest: "{{ frontend_src_dir }}/.env.production"
+    content: |
+      VITE_API_BASE_URL=http://{{ terraform_output.backend_public_ip.value }}:{{ backend_port | default(5000) }}
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+  become: true
+
+- name: Install frontend dependencies
+  command: npm install
+  args:
+    chdir: "{{ frontend_src_dir }}"
+  environment:
+    npm_config_cache: "{{ app_base_dir }}/.npm"
+  become_user: "{{ app_user }}"
+  become: true
+
+- name: Build frontend application
+  command: npm run build
+  args:
+    chdir: "{{ frontend_src_dir }}"
+  environment:
+    npm_config_cache: "{{ app_base_dir }}/.npm"
+  become_user: "{{ app_user }}"
+  become: true
+
+- name: Ensure nginx root exists
+  file:
+    path: "{{ frontend_nginx_root }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Deploy frontend build artifacts
+  copy:
+    src: "{{ frontend_build_dir }}/"
+    dest: "{{ frontend_nginx_root }}/"
+    owner: www-data
+    group: www-data
+    mode: "0644"
+    remote_src: yes
+
+- name: Install nginx config
+  template:
+    src: taskapp-nginx.conf.j2
+    dest: /etc/nginx/sites-available/taskapp
+
+- name: Enable nginx site
+  file:
+    src: /etc/nginx/sites-available/taskapp
+    dest: /etc/nginx/sites-enabled/taskapp
+    state: link
+
+- name: Restart nginx
+  service:
+    name: nginx
+    state: restarted

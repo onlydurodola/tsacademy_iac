@@ -1,0 +1,1 @@
+terraform_output: "{{ lookup('file', '../../../../terraform/root/terraform_outputs.json') | from_json }}"

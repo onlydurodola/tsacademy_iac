@@ -1,0 +1,67 @@
+---
+# tasks file for roles/backend
+#
+- name: Install backend runtime
+  apt:
+    name: "{{ backend_runtime }}"
+    state: present
+
+- name: Create backend application directory
+  file:
+    path: "{{ backend_app_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
+- name: Create Python virtual environment
+  command: python3 -m venv {{ backend_venv_dir }}
+  args:
+    creates: "{{ backend_venv_dir }}/bin/activate"
+  become_user: "{{ app_user }}"
+
+- name: Create backend environment file
+  copy:
+    dest: "{{ backend_app_dir }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+    content: |
+      DATABASE_HOST={{ db_host }}
+      DATABASE_PORT={{ db_port }}
+      DATABASE_NAME={{ db_name }}
+      DATABASE_USER={{ db_user }}
+      DATABASE_PASSWORD={{ db_password }}
+      FLASK_ENV=development
+      FLASK_DEBUG=1
+
+- name: Clone or update backend repository
+  git:
+    repo: "{{ backend_repo_url }}"
+    dest: "{{ backend_app_dir }}"
+    version: "{{ backend_branch }}"
+    force: yes
+    update: yes
+  become_user: "{{ app_user }}"
+
+- name: Install backend Python requirements
+  pip:
+    requirements: "{{ backend_app_dir }}/requirements.txt"
+    virtualenv: "{{ backend_venv_dir }}"
+    virtualenv_python: python3
+
+- name: Install backend systemd unit
+  template:
+    src: taskapp-backend.service.j2
+    dest: /etc/systemd/system/taskapp-backend.service
+    mode: "0644"
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: true
+
+- name: Enable and start backend service
+  systemd:
+    name: taskapp-backend
+    enabled: true
+    state: started
