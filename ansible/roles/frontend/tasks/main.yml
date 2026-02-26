@@ -64,7 +64,7 @@
   copy:
     dest: "{{ frontend_src_dir }}/.env.production"
     content: |
-      VITE_API_BASE_URL=http://{{ terraform_output.backend_public_ip.value }}:{{ backend_port | default(5000) }}
+      VITE_API_BASE_URL=http://{{ terraform_output.backend_private_ip.value }}:{{ backend_port | default(5000) }}
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: '0644'
