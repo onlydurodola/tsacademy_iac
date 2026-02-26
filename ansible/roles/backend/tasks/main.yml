@@ -14,6 +14,32 @@
     group: "{{ app_group }}"
     mode: "0755"
 
+- name: Check if backend repo already cloned
+  stat:
+    path: "{{ backend_app_dir }}/.git"
+  register: repo_git_dir
+  become_user: "{{ app_user }}"
+
+- name: Clone backend repository (only if not present)
+  git:
+    repo: "{{ backend_repo_url }}"
+    dest: "{{ backend_app_dir }}"
+    version: "{{ backend_branch }}"
+    clone: yes
+    update: no   # don't pull yet
+  become_user: "{{ app_user }}"
+  when: not repo_git_dir.stat.exists
+
+- name: Update backend repository (pull if already cloned)
+  git:
+    repo: "{{ backend_repo_url }}"
+    dest: "{{ backend_app_dir }}"
+    version: "{{ backend_branch }}"
+    update: yes
+    force: yes   # if you want to overwrite local changes
+  become_user: "{{ app_user }}"
+  when: repo_git_dir.stat.exists
+
 - name: Create Python virtual environment
   command: python3 -m venv {{ backend_venv_dir }}
   args:
@@ -27,23 +53,14 @@
     group: "{{ app_group }}"
     mode: "0600"
     content: |
-      DATABASE_HOST={{ db_host }}
-      DATABASE_PORT={{ db_port }}
+      DATABASE_HOST={{ terraform_output.db_endpoint.value | split(':') | first }}
+      DATABASE_PORT={{ terraform_output.db_endpoint.value | split(':') | last | default('5432') }}
       DATABASE_NAME={{ db_name }}
       DATABASE_USER={{ db_user }}
       DATABASE_PASSWORD={{ db_password }}
       FLASK_ENV=development
       FLASK_DEBUG=1
-
-- name: Clone or update backend repository
-  git:
-    repo: "{{ backend_repo_url }}"
-    dest: "{{ backend_app_dir }}"
-    version: "{{ backend_branch }}"
-    force: yes
-    update: yes
-  become_user: "{{ app_user }}"
-
+      SECRET_KEY=hioJTg56FGDYGujoudnGT+$3klshb!!
 - name: Install backend Python requirements
   pip:
     requirements: "{{ backend_app_dir }}/requirements.txt"

@@ -18,7 +18,7 @@ output "frontend_public_ip" {
   value       = module.ec2.frontend_public_ip
 }
 
-output "backend_public_ip" {
+output "backend_private_ip" {
   description = "Private IP address of the backend EC2 instance"
-  value       = module.ec2.backend_public_ip
+  value       = module.ec2.backend_private_ip
 }

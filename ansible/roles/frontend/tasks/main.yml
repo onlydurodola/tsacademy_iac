@@ -1,5 +1,5 @@
 ---
-# tasks file for roles/frontend
+# tasks file for frontend
 
 - name: Install frontend packages
   apt:
@@ -12,7 +12,7 @@
     state: directory
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
-    mode: "0755"
+    mode: '0755'
 
 - name: Ensure web server is running
   service:
@@ -35,11 +35,11 @@
 
 - name: Create home directory for taskapp user
   file:
-    path: /home/taskapp
+    path: /home/{{ app_user }}
     state: directory
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
-    mode: "0755"
+    mode: '0755'
   become: true
 
 - name: Create npm cache directory
@@ -48,7 +48,7 @@
     state: directory
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
-    mode: "0755"
+    mode: '0755'
   become: true
 
 - name: Clone frontend repository
@@ -67,7 +67,7 @@
       VITE_API_BASE_URL=http://{{ terraform_output.backend_public_ip.value }}:{{ backend_port | default(5000) }}
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
-    mode: "0644"
+    mode: '0644'
   become: true
 
 - name: Install frontend dependencies
@@ -88,13 +88,32 @@
   become_user: "{{ app_user }}"
   become: true
 
-- name: Ensure nginx root exists
+# ────────────────────────────────────────────────
+# Nginx deployment section – improved for reliability
+# ────────────────────────────────────────────────
+
+- name: Ensure nginx root directory exists with correct permissions
   file:
     path: "{{ frontend_nginx_root }}"
     state: directory
     owner: www-data
     group: www-data
-    mode: "0755"
+    mode: '0755'
+
+- name: Clean previous frontend build artifacts
+  file:
+    path: "{{ frontend_nginx_root }}"
+    state: absent
+  notify: Restart nginx
+
+- name: Recreate nginx root directory after cleanup
+  file:
+    path: "{{ frontend_nginx_root }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+  notify: Restart nginx
 
 - name: Deploy frontend build artifacts
   copy:
@@ -102,21 +121,45 @@
     dest: "{{ frontend_nginx_root }}/"
     owner: www-data
     group: www-data
-    mode: "0644"
+    mode: '0644'
     remote_src: yes
+  notify: Restart nginx
+
+- name: Ensure all directories in nginx root are traversable
+  file:
+    path: "{{ frontend_nginx_root }}"
+    state: directory
+    mode: '0755'
+    recurse: yes
+  notify: Restart nginx
+
+- name: Ensure all files in nginx root are readable
+  command: find {{ frontend_nginx_root }} -type f -exec chmod 644 {} \;
+  changed_when: false
+  notify: Restart nginx
 
 - name: Install nginx config
   template:
     src: taskapp-nginx.conf.j2
     dest: /etc/nginx/sites-available/taskapp
+    mode: '0644'
+  notify: Restart nginx
 
-- name: Enable nginx site
+- name: Remove default nginx site (prevents conflict)
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Restart nginx
+
+- name: Enable custom taskapp site
   file:
     src: /etc/nginx/sites-available/taskapp
     dest: /etc/nginx/sites-enabled/taskapp
     state: link
+    force: yes   # overwrite if broken link exists
+  notify: Restart nginx
 
-- name: Restart nginx
-  service:
-    name: nginx
-    state: restarted
+- name: Validate nginx configuration before restart
+  command: nginx -t
+  changed_when: false
+  notify: Restart nginx
