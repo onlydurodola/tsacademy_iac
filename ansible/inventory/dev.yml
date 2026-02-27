@@ -7,9 +7,9 @@ all:
     frontend:
       hosts:
         frontend-dev:
-          ansible_host: 54.155.130.67
+          ansible_host: 108.131.85.44
     
     backend: 
       hosts:
         backend-dev:
-          ansible_host: 3.252.132.127
+          ansible_host: 34.243.47.255
